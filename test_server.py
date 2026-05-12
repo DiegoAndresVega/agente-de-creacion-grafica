@@ -63,6 +63,7 @@ _cargar_claves()
 from pathlib import Path
 from io import BytesIO
 
+import requests as _requests
 from flask import Flask, request, render_template, jsonify, send_from_directory
 
 # Asegurar que scripts/ sea importable
@@ -77,6 +78,89 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB máximo
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+
+# URL base donde este servidor es accesible públicamente (para devolver URLs de mockups)
+SERVER_BASE_URL = os.environ.get("SERVER_BASE_URL", "http://localhost:5001")
+
+# Mapeo id_product_attribute (PrestaShop) → modelo_trofeo del catálogo
+# El segundo número de id_product_full (ej. "106_1243" → 1243) identifica la variante
+_ATTR_A_MODELO: dict[int, str] = {
+    # Totem Basic
+    1187: "totem_basic", 1188: "totem_basic", 1189: "totem_basic", 1190: "totem_basic",
+    # Totem Clot (sin modelo propio → totem_basic)
+    1193: "totem_basic", 1194: "totem_basic",
+    # Copetin
+    1320: "copetin", 1321: "copetin", 1322: "copetin", 1323: "copetin",
+    # Placa A5
+    1325: "placa_a5", 1327: "placa_a5", 1329: "placa_a5",
+    # Placa A4 (→ placa_a5 como aproximación)
+    1285: "placa_a5", 1287: "placa_a5", 1291: "placa_a5",
+    # Placa MINI
+    1308: "placa_a5", 1310: "placa_a5", 1312: "placa_a5", 1314: "placa_a5", 1316: "placa_a5",
+    # Placa MAXI
+    1429: "placa_a5", 1431: "placa_a5", 1433: "placa_a5", 1435: "placa_a5",
+    # Placa Paper
+    1279: "placa_a5", 1281: "placa_a5", 1283: "placa_a5",
+    1442: "placa_a5", 1444: "placa_a5", 1446: "placa_a5",
+    # Placa Pergamine
+    1417: "placa_a5", 1419: "placa_a5",
+    # Placa System
+    1700: "placa_a5", 1702: "placa_a5", 1704: "placa_a5",
+    1708: "placa_a5", 1710: "placa_a5", 1712: "placa_a5",
+    1716: "placa_a5", 1718: "placa_a5", 1720: "placa_a5",
+    1724: "placa_a5", 1726: "placa_a5", 1728: "placa_a5",
+    # Pai Pai
+    1271: "placa_a5", 1273: "placa_a5", 1275: "placa_a5",
+    1421: "placa_a5", 1423: "placa_a5", 1425: "placa_a5",
+    # Medallita / Medalla GONG (→ copetin como aproximación)
+    1437: "copetin", 1438: "copetin", 1439: "copetin", 1440: "copetin",
+    1448: "copetin", 1449: "copetin", 1450: "copetin", 1451: "copetin",
+    # Copón
+    1392: "totem_basic", 1393: "totem_basic", 1394: "totem_basic", 1395: "totem_basic",
+    1397: "totem_basic", 1398: "totem_basic", 1399: "totem_basic", 1400: "totem_basic",
+    1402: "totem_basic", 1403: "totem_basic", 1404: "totem_basic", 1405: "totem_basic",
+    # Galardon S
+    1591: "totem_basic", 1592: "totem_basic", 1593: "totem_basic", 1594: "totem_basic",
+    1596: "totem_basic", 1597: "totem_basic", 1598: "totem_basic", 1599: "totem_basic",
+    1606: "totem_basic", 1607: "totem_basic", 1608: "totem_basic", 1609: "totem_basic",
+    # Galardon M
+    1616: "totem_basic", 1617: "totem_basic", 1618: "totem_basic", 1619: "totem_basic",
+    1621: "totem_basic", 1622: "totem_basic", 1623: "totem_basic", 1624: "totem_basic",
+    1626: "totem_basic", 1627: "totem_basic", 1628: "totem_basic", 1629: "totem_basic",
+    1631: "totem_basic", 1632: "totem_basic", 1633: "totem_basic", 1634: "totem_basic",
+    # Galardon L
+    1641: "totem_basic", 1642: "totem_basic", 1643: "totem_basic", 1644: "totem_basic",
+    1646: "totem_basic", 1647: "totem_basic", 1648: "totem_basic", 1649: "totem_basic",
+    1651: "totem_basic", 1652: "totem_basic", 1653: "totem_basic", 1654: "totem_basic",
+    1656: "totem_basic", 1657: "totem_basic", 1658: "totem_basic", 1659: "totem_basic",
+    # Totem JAP / TACO
+    1247: "totem_basic", 1249: "totem_basic", 1251: "totem_basic", 1453: "totem_basic",
+    1255: "totem_basic", 1257: "totem_basic", 1259: "totem_basic", 1454: "totem_basic",
+    1263: "totem_basic", 1265: "totem_basic", 1267: "totem_basic", 1455: "totem_basic",
+    # Totem BIS
+    1219: "totem_basic", 1221: "totem_basic", 1223: "totem_basic",
+    1227: "totem_basic", 1229: "totem_basic", 1231: "totem_basic",
+    1235: "totem_basic", 1237: "totem_basic", 1239: "totem_basic",
+    # Totem GEM
+    1361: "totem_basic", 1363: "totem_basic", 1764: "totem_basic", 1766: "totem_basic",
+    1369: "totem_basic", 1371: "totem_basic", 1765: "totem_basic", 1767: "totem_basic",
+    # Totem CAL / MAR / NERO
+    1487: "totem_basic", 1488: "totem_basic", 1489: "totem_basic",
+    1490: "totem_basic", 1491: "totem_basic", 1492: "totem_basic",
+    1493: "totem_basic", 1494: "totem_basic", 1495: "totem_basic",
+    # Totem FIL 1 y 2
+    1243: "totem_basic", 1334: "totem_basic",
+    # Totem CERAMIC
+    1211: "totem_basic", 1213: "totem_basic", 1215: "totem_basic",
+}
+
+
+def _ruta_a_url(ruta: str) -> str:
+    """Convierte ruta de disco del servidor PrestaShop a su URL pública."""
+    for prefijo in ("/home/testsustainawards/www/", "/home/sustainawards/www/"):
+        if ruta.startswith(prefijo):
+            return "https://sustainawards.com/" + ruta[len(prefijo):]
+    return ruta
 
 # ─── Rutas Flask ──────────────────────────────────────────────────────────────
 
@@ -340,6 +424,123 @@ def generar():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    finally:
+        if logo_tmp_path:
+            logo_tmp_path.unlink(missing_ok=True)
+
+
+@app.route("/outputs/<path:filename>")
+def serve_outputs(filename):
+    return send_from_directory(PROJECT_ROOT / "outputs", filename)
+
+
+@app.route("/iadesigngenerator/process", methods=["POST"])
+def iadesigngenerator_process():
+    logo_tmp_path = None
+    try:
+        # ── Leer campos ───────────────────────────────────────────────────────
+        id_product_full  = request.form.get("id_product_full", "")
+        title_design     = request.form.get("title_design", "").strip()
+        subtitle_design  = request.form.get("subtitle_design", "").strip()
+
+        # Extraer id_product_attribute (segundo número de "106_1243")
+        partes = id_product_full.split("_")
+        id_attr = int(partes[1]) if len(partes) == 2 and partes[1].isdigit() else 0
+        modelo_trofeo = _ATTR_A_MODELO.get(id_attr, "totem_basic")
+
+        # ── Archivos: convertir rutas del servidor PrestaShop a URLs públicas ─
+        gallery_paths = request.form.getlist("files[gallery][]") or request.form.getlist("files[gallery][0]")
+        pdf_path      = request.form.get("files[document_pdf]", "")
+
+        logo_bytes = None
+        logo_ext   = "png"
+        if gallery_paths:
+            url_logo = _ruta_a_url(gallery_paths[0])
+            resp = _requests.get(url_logo, timeout=30)
+            if resp.ok:
+                logo_bytes = resp.content
+                logo_ext   = url_logo.rsplit(".", 1)[-1] if "." in url_logo else "png"
+
+        pdf_bytes = None
+        if pdf_path:
+            url_pdf = _ruta_a_url(pdf_path)
+            resp = _requests.get(url_pdf, timeout=30)
+            if resp.ok:
+                pdf_bytes = resp.content
+
+        # ── Construir pedido ──────────────────────────────────────────────────
+        job_id = f"PS-{uuid.uuid4().hex[:8].upper()}"
+        pedido = {
+            "id_pedido":     job_id,
+            "id_cliente":    id_product_full,
+            "modelo_trofeo": modelo_trofeo,
+            "cantidad":      "1",
+            "presupuesto":   0,
+            "evento":  {"nombre": "", "fecha": "", "lugar": ""},
+            "award":   {"headline": title_design, "recipient": "", "subtitle": subtitle_design, "fecha": ""},
+            "contacto": {"nombre": "", "email": "", "telefono": "", "fecha": "", "cantidad": "1"},
+            "assets":  {"logo_path": None, "brand_book_path": None, "url_corporativa": ""},
+        }
+
+        if logo_bytes:
+            logo_tmp_path = PROJECT_ROOT / "assets" / "logos" / f"_ps_{job_id}.{logo_ext}"
+            logo_tmp_path.write_bytes(logo_bytes)
+            pedido["assets"]["logo_path"] = str(logo_tmp_path.relative_to(PROJECT_ROOT))
+
+        os.chdir(PROJECT_ROOT)
+
+        # ── Pipeline ──────────────────────────────────────────────────────────
+        brand_context = capa0.normalizar_pedido(pedido, logo_bytes=logo_bytes, pdf_bytes=pdf_bytes)
+        brand_context["logo_path"] = pedido["assets"]["logo_path"]
+
+        modelo = capa3.cargar_modelo_trofeo(modelo_trofeo)
+        zona   = modelo["zona_imprimible"]
+        w, h   = zona["ancho"], zona["alto"]
+        pedido["_trophy"] = {
+            "id":          modelo["id"],
+            "nombre":      modelo["nombre"],
+            "ancho":       w,
+            "alto":        h,
+            "forma":       zona.get("forma", "rectangular"),
+            "material":    modelo.get("material", ""),
+            "constraints": modelo.get("diseno_constraints", {}),
+        }
+
+        briefs, _ = capa1.diseñar_desde_contexto(pedido, brand_context)
+        fuentes   = capa2.cargar_fuentes()
+        (PROJECT_ROOT / "outputs" / "mockups").mkdir(parents=True, exist_ok=True)
+
+        urls = []
+        for concepto in briefs:
+            pid   = concepto["proposal_id"]
+            award = {
+                "headline":  concepto.get("award_text", {}).get("headline") or title_design or "Excellence Award",
+                "recipient": concepto.get("award_text", {}).get("recipient") or "",
+                "subtitle":  concepto.get("award_text", {}).get("subtitle") or subtitle_design or "",
+                "fecha":     "",
+            }
+            _dc = modelo.get("diseno_constraints", {})
+            diseno = capa2.renderizar_diseno(
+                concepto, w, h,
+                logo_path=brand_context["logo_path"],
+                award=award, fuentes=fuentes, seed=pid * 100,
+                trophy_margin_h=_dc.get("margen_h_pct"),
+                trophy_effective_width=_dc.get("effective_width_px"),
+                trophy_zone_l=_dc.get("zone_l_px"),
+                trophy_zone_r=_dc.get("zone_r_px"),
+                trophy_zona=zona,
+            )
+            mockup_img = capa3.componer(diseno, modelo["imagen_base"], zona)
+            out_path   = PROJECT_ROOT / "outputs" / "mockups" / f"mockup_{job_id}_p{pid}.jpg"
+            mockup_img.save(str(out_path), quality=95)
+            urls.append(f"{SERVER_BASE_URL}/outputs/mockups/mockup_{job_id}_p{pid}.jpg")
+
+        return jsonify({"ok": True, "job_id": job_id, "designs": urls})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
     finally:
         if logo_tmp_path:
             logo_tmp_path.unlink(missing_ok=True)
