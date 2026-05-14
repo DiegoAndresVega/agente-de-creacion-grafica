@@ -9,6 +9,7 @@ Pipeline de 2 llamadas a Claude:
 Modelos usados:
   Claude claude-sonnet-4-6 (coste medio) — ~1-2 céntimos por generación
 """
+from __future__ import annotations
 
 import os
 import re

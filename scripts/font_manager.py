@@ -11,6 +11,7 @@ Uso:
     path = get_font_path("Montserrat", weight=700)
     font = ImageFont.truetype(str(path), size=80) if path else fallback
 """
+from __future__ import annotations
 
 import re
 import requests

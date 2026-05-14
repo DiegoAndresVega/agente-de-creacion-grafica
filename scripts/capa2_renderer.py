@@ -11,6 +11,7 @@ Pipeline por propuesta:
   3. Logo exacto en la posición definida
   4. Texto del galardón con contraste garantizado
 """
+from __future__ import annotations
 
 import base64
 import math

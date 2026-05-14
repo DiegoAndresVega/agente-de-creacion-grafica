@@ -6,6 +6,7 @@ Funciones:
   generar_fondo()       – fondo artístico para el trofeo
   generar_texto_capa()  – tipografía premium con fondo transparente
 """
+from __future__ import annotations
 
 import os
 import base64

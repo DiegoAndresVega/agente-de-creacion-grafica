@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 TEST SERVER - Sustain Awards
 Servidor local de prueba con formulario HTML.

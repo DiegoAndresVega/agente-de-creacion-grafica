@@ -10,6 +10,7 @@ Procesa:
   - Brandbook PDF       → base64 PDF para enviar a Claude (si existe)
   - URL corporativa     → fetch HTML → extrae colores, densidad visual, estilo
 """
+from __future__ import annotations
 
 import re
 import base64
