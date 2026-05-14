@@ -449,13 +449,13 @@ def iadesigngenerator_process():
         modelo_trofeo = _ATTR_A_MODELO.get(id_attr, "totem_basic")
 
         # ── Archivos: convertir rutas del servidor PrestaShop a URLs públicas ─
-        gallery_paths = request.form.getlist("files[gallery][]") or request.form.getlist("files[gallery][0]")
-        pdf_path      = request.form.get("files[document_pdf]", "")
+        gallery_path = request.form.get("files[gallery][0]", "")
+        pdf_path     = request.form.get("files[document_pdf]", "")
 
         logo_bytes = None
         logo_ext   = "png"
-        if gallery_paths:
-            url_logo = _ruta_a_url(gallery_paths[0])
+        if gallery_path:
+            url_logo = _ruta_a_url(gallery_path)
             resp = _requests.get(url_logo, timeout=30)
             if resp.ok:
                 logo_bytes = resp.content
